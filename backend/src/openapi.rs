@@ -2,8 +2,8 @@ use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
 use utoipa::{Modify, OpenApi};
 
 use crate::{
-    achievements, auth, byond, connections, discord, new_players, player, stickyban, ticket,
-    twofactor, whitelist,
+    achievements, auth, byond, connections, discord, new_players, player, ss14auth, stickyban,
+    ticket, twofactor, whitelist,
 };
 
 /// Security scheme modifier to add authentication definitions
@@ -20,6 +20,16 @@ impl Modify for SecurityAddon {
                         .scheme(HttpAuthScheme::Bearer)
                         .bearer_format("JWT")
                         .description(Some("Session cookie (JWT) for authenticated users"))
+                        .build(),
+                ),
+            );
+            // SS14 client session token (CM access token) for the SS14 auth broker
+            components.add_security_scheme(
+                "ss14_auth_token",
+                SecurityScheme::Http(
+                    HttpBuilder::new()
+                        .scheme(HttpAuthScheme::Basic)
+                        .description(Some("Authorization: SS14Auth <CM access token>"))
                         .build(),
                 ),
             );
@@ -102,6 +112,13 @@ impl Modify for SecurityAddon {
         achievements::set_achievement,
         // Two factor endpoints
         twofactor::twofactor_validate,
+        // SS14 auth broker
+        ss14auth::identity,
+        ss14auth::session_join,
+        ss14auth::session_has_joined,
+        ss14auth::user_by_ss14_id,
+        ss14auth::query_name,
+        ss14auth::query_userid,
     ),
     components(
         schemas(
@@ -151,6 +168,16 @@ impl Modify for SecurityAddon {
             achievements::AchievementsResponse,
             achievements::SetAchievementRequest,
             achievements::SetAchievementResponse,
+            // SS14 auth schemas
+            ss14auth::IdentityResponse,
+            ss14auth::JoinRequest,
+            ss14auth::JoinResponse,
+            ss14auth::HasJoinedResponse,
+            ss14auth::HasJoinedUserData,
+            ss14auth::HasJoinedConnectionData,
+            ss14auth::UserBySs14IdResponse,
+            ss14auth::QueryResponse,
+            ss14auth::Ss14AuthError,
         )
     ),
     tags(
@@ -166,6 +193,7 @@ impl Modify for SecurityAddon {
         (name = "discord", description = "Discord integration"),
         (name = "achievements", description = "Steam achievements integration"),
         (name = "twofactor", description = "Two-factor authentication validation"),
+        (name = "SS14 Auth", description = "Space Station 14 login broker (CM accounts and Space Wizards fallback)"),
     )
 )]
 pub struct ApiDoc;

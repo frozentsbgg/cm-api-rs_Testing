@@ -90,6 +90,57 @@ provider_name = "oidc"                                   # identity provider nam
 webhook_secret = "discourse-webhook-secret"              # (optional) webhook authentication
 ```
 
+#### Space Station 14 Authentication Broker
+
+Lets SS14 game servers (CMU-14) accept CM accounts as real logins alongside Space Wizards
+accounts, whether the player signed into the launcher with a password or through Steam.
+CMU-14's auth server is [MultiAuthProxy](https://github.com/AU-14/MultiAuthProxy), which asks
+several auth servers for every login; add this broker to its `AuthServers` list and restart it.
+Nothing changes on the game server itself:
+
+```json
+"AuthServers": [
+  "https://auth.spacestation14.com/",
+  "https://auth.playss14.com/",
+  "https://db.cm-ss13.com/api/ss14auth/"
+]
+```
+
+```toml
+[ss14auth]
+allowed_server_ips = ["203.0.113.10"]   # hosts allowed to call hasJoined (the proxy); empty = any
+# wizden_url = "https://auth.spacestation14.com/"  # only when used WITHOUT a multi-auth proxy:
+#                                                   # unknown logins are then forwarded to Space Wizards
+# userinfo_url = "https://auth.example.com/application/o/userinfo/"  # defaults to <authentik.base_url>/application/o/userinfo/
+# trust = 1.0
+```
+
+Which SS14 identity a CM account gets is decided on its first join and kept in `ss14_identities`:
+
+- A CM account with a Space Wizards account linked in the CM portal plays as that account, so
+  the player is the same person on the server whichever login they use.
+- Any other CM account gets its own id (a UUID v5 of the ckey) with the ckey as username. No
+  setup is needed; Steam players in particular can join straight away.
+- Linking a Wizden account later does not change an identity that has already joined. To merge
+  a player's history, change their `ss14_identities` row by hand.
+
+Endpoints, all under `/api/ss14auth/`:
+
+- `GET api/identity` (launcher, `Authorization: SS14Auth <CM access token>`): the identity the
+  account will play as, which the launcher passes to the game before it starts.
+- `POST api/session/join` (game client, `Authorization: SS14Auth <CM access token>`): validates
+  the token against Authentik `userinfo`, resolves the identity, records the connection hash.
+- `GET api/session/hasJoined` (game server via the proxy): answers recorded CM logins; anything
+  else is "not valid" so the proxy's other auth servers answer for Space Wizards players. With
+  `wizden_url` set, unknown logins are forwarded instead.
+- `GET api/query/name?name=` and `GET api/query/userid?userid=`: identity lookups in Space
+  Wizards' format, used by the proxy and by in-game admin commands. CM accounts only.
+- `GET user-by-ss14-id/<id>` (API bearer token): the CM ckey behind an SS14 user id, for
+  applying CM bans and whitelists in game.
+
+Requires the `ss14_identities` and `ss14_sessions` tables from `backend/schema/cmapi.sql`.
+Session rows live for about 90 seconds and are single use.
+
 #### Discord Bot Integration
 
 ```toml

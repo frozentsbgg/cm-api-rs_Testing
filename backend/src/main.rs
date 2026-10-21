@@ -73,6 +73,7 @@ mod new_players;
 mod openapi;
 mod player;
 mod spa;
+mod ss14auth;
 mod steam;
 mod stickyban;
 mod ticket;
@@ -186,6 +187,7 @@ struct Config {
     api_auth: Option<ApiAuthConfig>,
     discord_bot: Option<DiscordBotConfig>,
     steam: Option<steam::SteamConfig>,
+    ss14auth: Option<ss14auth::Ss14AuthConfig>,
     byond_hashes: Option<std::collections::HashMap<String, String>>,
 }
 
@@ -402,6 +404,17 @@ async fn build_rocket() -> rocket::Rocket<rocket::Build> {
         .mount(
             format!("{}/Steam", base_url),
             routes![steam::authenticate, steam::get_my_persona],
+        )
+        .mount(
+            format!("{}/ss14auth", base_url),
+            routes![
+                ss14auth::identity,
+                ss14auth::session_join,
+                ss14auth::session_has_joined,
+                ss14auth::user_by_ss14_id,
+                ss14auth::query_name,
+                ss14auth::query_userid
+            ],
         )
         .mount(
             format!("{}/ByondHash", base_url),

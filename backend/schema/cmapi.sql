@@ -1,5 +1,5 @@
 -- Schema for the cmapi database
--- Used by cm-api-rs for storing Steam authentication tokens
+-- Used by cm-api-rs for storing Steam authentication tokens and SS14 login sessions
 
 CREATE DATABASE IF NOT EXISTS cmapi;
 USE cmapi;
@@ -26,4 +26,28 @@ CREATE TABLE ban_appeals (
     status VARCHAR(16) NOT NULL DEFAULT 'open',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_ckey_status (ckey, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Short-lived records of CM-account logins to Space Station 14 servers (see src/ss14auth.rs).
+-- A row is written when the game client registers a connection and deleted when the game
+-- server confirms it; rows older than a few minutes are purged.
+CREATE TABLE ss14_sessions (
+    hash VARCHAR(64) NOT NULL PRIMARY KEY,
+    ss14_user_id VARCHAR(64) NOT NULL,
+    user_name VARCHAR(32) NOT NULL,
+    ckey VARCHAR(64) NOT NULL,
+    hwid VARCHAR(255) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Which SS14 identity each CM account plays CMU-14 as. Written on first join, then fixed.
+-- source: 'wizden' = the Space Wizards account linked in the CM portal; 'cm' = an id minted
+-- from the ckey (uuid5 in the cm-ss13.com namespace) for accounts with nothing linked.
+CREATE TABLE ss14_identities (
+    ckey VARCHAR(64) NOT NULL PRIMARY KEY,
+    ss14_user_id VARCHAR(36) NOT NULL UNIQUE,
+    source ENUM('wizden', 'cm') NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

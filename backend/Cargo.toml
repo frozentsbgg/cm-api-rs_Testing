@@ -30,6 +30,7 @@ serenity = { version = "0.12", default-features = false, features = ["http", "ru
 
 # Token encoding
 hex = "0.4"
+sha1 = "0.10"
 
 [dependencies.rocket]
 version = "0.5.1"
